@@ -254,16 +254,26 @@ class ReflectPositionDistribution(Distribution):
         # -1 gives a sensible 'buffer zone' of size 2
         config_copy["upper_bound"] = (self.map_x / 2 - 1, self.map_y)
         self.pos_generator = PerAgentUniformDistribution(config_copy)
-        # CHANGE: took out if statement, whats the consequence here ?
-        # if self.n_enemies > self.n_units:
-        enemy_config_copy = deepcopy(config)
-        enemy_config_copy["env_key"] = "enemy_start_positions"
-        enemy_config_copy["lower_bound"] = (self.map_x / 2, 0)
-        enemy_config_copy["upper_bound"] = (self.map_x, self.map_y)
-        enemy_config_copy["n_units"] = self.n_enemies - self.n_units
-        self.enemy_pos_generator = PerAgentUniformDistribution(
-            enemy_config_copy
-        )
+        # CHANGE: took out if statement, whats the consequence here ? -> bug with start positions
+        if self.n_enemies > self.n_units:
+            enemy_config_copy = deepcopy(config)
+            enemy_config_copy["env_key"] = "enemy_start_positions"
+            enemy_config_copy["lower_bound"] = (self.map_x / 2, 0)
+            enemy_config_copy["upper_bound"] = (self.map_x, self.map_y)
+            enemy_config_copy["n_units"] = self.n_enemies - self.n_units
+            self.enemy_pos_generator = PerAgentUniformDistribution(
+                enemy_config_copy
+            )
+        # CHANGE: reintroduced if statment with ally config 
+        if self.n_enemies < self.n_units:
+            ally_config_copy = deepcopy(config)
+            ally_config_copy["env_key"] = "ally_start_positions"
+            ally_config_copy["lower_bound"] = (self.map_x / 2, 0)
+            ally_config_copy["upper_bound"] = (self.map_x, self.map_y)
+            ally_config_copy["n_enemies"] =  self.n_units - self.n_enemies
+            self.ally_pos_generator = PerAgentUniformDistribution(
+                ally_config_copy
+            )
 
     def generate(self) -> Dict[str, Dict[str, Any]]:
         ally_positions_dict = self.pos_generator.generate()
@@ -271,13 +281,15 @@ class ReflectPositionDistribution(Distribution):
         enemy_positions = np.zeros((self.n_enemies, 2))
         enemy_positions[: self.n_units, 0] = self.map_x - ally_positions[:, 0]
         enemy_positions[: self.n_units, 1] = ally_positions[:, 1]
-        # CHANGE: deleted if statement, consequences ?
-        #if self.n_enemies > self.n_units:
-        gen_enemy_positions = self.enemy_pos_generator.generate()
-        gen_enemy_positions = gen_enemy_positions["enemy_start_positions"][
-            "item"
-        ]
-        enemy_positions[self.n_units :, :] = gen_enemy_positions
+        # CHANGE: deleted if statement, consequences ? -> Bug with start positions
+        if self.n_enemies > self.n_units:
+            gen_enemy_positions = self.enemy_pos_generator.generate()
+            gen_enemy_positions = gen_enemy_positions["enemy_start_positions"][
+                "item"
+            ]
+            enemy_positions[self.n_units :, :] = gen_enemy_positions
+        
+
         
         return {
             "ally_start_positions": {"item": ally_positions, "id": 0},
