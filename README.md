@@ -1,4 +1,4 @@
-# Nasma version
+# Nasma version -varying
 # SMACv2 Documentation
 
 # Introduction
