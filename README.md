@@ -1,4 +1,3 @@
-# Nasma version -varying
 # SMACv2 Documentation
 
 # Introduction
@@ -100,7 +99,7 @@ pip install git+https://github.com/oxwhirl/smacv2.git
 
 ```bash
 git clone https://github.com/oxwhirl/smacv2.git
-cd smacv2
+cd smac
 pip install -e ".[dev]"
 pre-commit install
 ```

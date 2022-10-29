@@ -99,6 +99,8 @@ class StarCraft2Env(MultiAgentEnv):
         reward_negative_scale=0.5,
         reward_scale=True,
         reward_scale_rate=20,
+        use_unit_ranges=False,
+        min_attack_range=2,
         kill_unit_step_mul=2,
         fully_observable=False,
         capability_config={},
@@ -279,7 +281,7 @@ class StarCraft2Env(MultiAgentEnv):
         self.n_enemies = (
             map_params["n_enemies"]
             if not self.replace_teammates
-            else self.capability_config["team_gen"]["n_units"]
+            else self.capability_config["team_gen"]["n_enemies"]
         )
         self.random_start = "start_positions" in self.capability_config
         self.conic_fov = conic_fov
@@ -297,6 +299,8 @@ class StarCraft2Env(MultiAgentEnv):
         self.window_size = (window_size_x, window_size_y)
         self.replay_dir = replay_dir
         self.replay_prefix = replay_prefix
+        self.use_unit_ranges = use_unit_ranges
+        self.min_attack_range = min_attack_range
 
         # Actions
         self.n_actions_move = 4
@@ -526,7 +530,8 @@ class StarCraft2Env(MultiAgentEnv):
             "enemy_start_positions", {}
         ).get("item", None)
         self.mask_enemies = self.enemy_mask is not None
-        team = episode_config.get("team_gen", {}).get("item", None)
+        ally_team = episode_config.get("team_gen", {}).get("ally_team", None)
+        enemy_team = episode_config.get("team_gen", {}).get("enemy_team", None)
         self.death_tracker_ally = np.zeros(self.n_agents)
         self.death_tracker_enemy = np.zeros(self.n_enemies)
         self.fov_directions = np.zeros((self.n_agents, 2))
@@ -547,7 +552,9 @@ class StarCraft2Env(MultiAgentEnv):
 
         try:
             self._obs = self._controller.observe()
-            self.init_units(team, episode_config=episode_config)
+            self.init_units(
+                ally_team, enemy_team, episode_config=episode_config
+            )
         except (protocol.ProtocolError, protocol.ConnectionError):
             self.full_restart()
 
@@ -1020,11 +1027,42 @@ class StarCraft2Env(MultiAgentEnv):
 
     def unit_shoot_range(self, agent_id):
         """Returns the shooting range for an agent."""
-        return 6
+        if self.use_unit_ranges:
+            attack_range_map = {
+                self.stalker_id: 6,
+                self.zealot_id: 0.1,
+                self.colossus_id: 7,
+                self.zergling_id: 0.1,
+                self.baneling_id: 0.25,
+                self.hydralisk_id: 5,
+                self.marine_id: 5,
+                self.marauder_id: 6,
+                self.medivac_id: 4,
+            }
+            unit = self.agents[agent_id]
+            return max(attack_range_map[unit.unit_type], self.min_attack_range)
+        else:
+            return 6
 
     def unit_sight_range(self, agent_id):
         """Returns the sight range for an agent."""
-        return 9
+        # get the unit
+        if self.use_unit_ranges:
+            sight_range_map = {
+                self.stalker_id: 10,
+                self.zealot_id: 9,
+                self.colossus_id: 10,
+                self.zergling_id: 8,
+                self.baneling_id: 8,
+                self.hydralisk_id: 9,
+                self.marine_id: 9,
+                self.marauder_id: 10,
+                self.medivac_id: 11,
+            }
+            unit = self.agents[agent_id]
+            return sight_range_map[unit.unit_type]
+        else:
+            return 9
 
     def unit_max_cooldown(self, unit):
         """Returns the maximal cooldown for a unit."""
@@ -2067,7 +2105,7 @@ class StarCraft2Env(MultiAgentEnv):
             shoot_range = self.unit_shoot_range(agent_id)
 
             target_items = self.enemies.items()
-            if self.map_type == "MMM" and unit.unit_type == self.medivac_id:
+            if self.map_type in ("MMM", "terran_gen") and unit.unit_type == self.medivac_id:
                 # Medivacs cannot heal themselves or other flying units
                 target_items = [
                     (t_id, t_unit)
@@ -2143,7 +2181,7 @@ class StarCraft2Env(MultiAgentEnv):
             self._controller.step(2)
             self._obs = self._controller.observe()
 
-    def _create_new_team(self, team, episode_config):
+    def _create_new_team(self, team, episode_config, ally):
         # unit_names = {
         #     self.id_to_unit_name_map[unit.unit_type]
         #     for unit in self.agents.values()
@@ -2154,61 +2192,42 @@ class StarCraft2Env(MultiAgentEnv):
 
         # TODO hardcoding init location. change this later for new maps
         if not self.random_start:
-            ally_init_pos = [sc_common.Point2D(x=8, y=16)] * self.n_agents
-            # Spawning location of enemy units
-            enemy_init_pos = [sc_common.Point2D(x=24, y=16)] * self.n_enemies
+            if ally:
+                init_pos = [sc_common.Point2D(x=8, y=16)] * self.n_agents
+            else:
+                init_pos = [sc_common.Point2D(x=24, y=16)] * self.n_enemies
         else:
-            ally_init_pos = [
-                sc_common.Point2D(
-                    x=self.ally_start_positions[i][0],
-                    y=self.ally_start_positions[i][1],
-                )
-                for i in range(self.ally_start_positions.shape[0])
-            ]
-            enemy_init_pos = [
-                sc_common.Point2D(
-                    x=self.enemy_start_positions[i][0],
-                    y=self.enemy_start_positions[i][1],
-                )
-                for i in range(self.enemy_start_positions.shape[0])
-            ]
+            if ally:
+                init_pos = [
+                    sc_common.Point2D(
+                        x=self.ally_start_positions[i][0],
+                        y=self.ally_start_positions[i][1],
+                    )
+                    for i in range(self.ally_start_positions.shape[0])
+                ]
+            else:
+                init_pos = [
+                    sc_common.Point2D(
+                        x=self.enemy_start_positions[i][0],
+                        y=self.enemy_start_positions[i][1],
+                    )
+                    for i in range(self.enemy_start_positions.shape[0])
+                ]
+        debug_command = []
         for unit_id, unit in enumerate(team):
-            unit_type_ally = self._convert_unit_name_to_unit_type(
-                unit, ally=True
-            )
-            debug_command = [
+            unit_type = self._convert_unit_name_to_unit_type(unit, ally=ally)
+            owner = 1 if ally else 2
+            debug_command.append(
                 d_pb.DebugCommand(
                     create_unit=d_pb.DebugCreateUnit(
-                        unit_type=unit_type_ally,
-                        owner=1,
-                        pos=ally_init_pos[unit_id],
+                        unit_type=unit_type,
+                        owner=owner,
+                        pos=init_pos[unit_id],
                         quantity=1,
                     )
                 )
-            ]
-            self._controller.debug(debug_command)
-
-            unit_type_enemy = self._convert_unit_name_to_unit_type(
-                unit, ally=False
             )
-            debug_command = [
-                d_pb.DebugCommand(
-                    create_unit=d_pb.DebugCreateUnit(
-                        unit_type=unit_type_enemy,
-                        owner=2,
-                        pos=enemy_init_pos[unit_id],
-                        quantity=1,
-                    )
-                )
-            ]
-            self._controller.debug(debug_command)
-
-        try:
-            self._controller.step(1)
-            self._obs = self._controller.observe()
-        except (protocol.ProtocolError, protocol.ConnectionError):
-            self.full_restart()
-            self.reset(episode_config=episode_config)
+        self._controller.debug(debug_command)
 
     def _convert_unit_name_to_unit_type(self, unit_name, ally=True):
         if ally:
@@ -2216,13 +2235,20 @@ class StarCraft2Env(MultiAgentEnv):
         else:
             return self.enemy_unit_map[unit_name]
 
-    def init_units(self, team, episode_config={}):
+    def init_units(self, ally_team, enemy_team, episode_config={}):
         """Initialise the units."""
-        if team:
+        if ally_team and enemy_team:
             # can use any value for min unit type because
             # it is hardcoded based on the version
             self._init_ally_unit_types(0)
-            self._create_new_team(team, episode_config)
+            self._create_new_team(ally_team, episode_config, ally=True)
+            self._create_new_team(enemy_team, episode_config, ally=False)
+            try:
+                self._controller.step(1)
+                self._obs = self._controller.observe()
+            except (protocol.ProtocolError, protocol.ConnectionError):
+                self.full_restart()
+                self.reset(episode_config=episode_config)
         while True:
             # Sometimes not all units have yet been created by SC2
             self.agents = {}
@@ -2257,7 +2283,7 @@ class StarCraft2Env(MultiAgentEnv):
                     if self._episode_count == 0:
                         self.max_reward += unit.health_max + unit.shield_max
 
-            if self._episode_count == 0 and not team:
+            if self._episode_count == 0 and not ally_team:
                 min_unit_type = min(
                     unit.unit_type for unit in self.agents.values()
                 )
