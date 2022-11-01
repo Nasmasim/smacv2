@@ -13,11 +13,12 @@ from smac.env.starcraft2.wrapper import StarCraftCapabilityEnvWrapper
 
 logging.set_verbosity(logging.DEBUG)
 
+
 def main():
 
     distribution_config = {
         "n_units": 10,
-        "n_enemies":5,
+        "n_enemies": 5,
         "team_gen": {
             "dist_type": "weighted_teams",
             "unit_types": ["marine", "marauder", "medivac"],
@@ -46,7 +47,7 @@ def main():
     n_actions = env_info["n_actions"]
     n_agents = env_info["n_agents"]
 
-    n_episodes = 2
+    n_episodes = 1
 
     print("Training episodes")
     for e in range(n_episodes):
@@ -70,6 +71,7 @@ def main():
             time.sleep(0.15)
             episode_reward += reward
         print("Total reward in episode {} = {}".format(e, episode_reward))
+
 
 if __name__ == "__main__":
     main()

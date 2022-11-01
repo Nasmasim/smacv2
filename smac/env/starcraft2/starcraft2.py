@@ -2105,7 +2105,10 @@ class StarCraft2Env(MultiAgentEnv):
             shoot_range = self.unit_shoot_range(agent_id)
 
             target_items = self.enemies.items()
-            if self.map_type in ("MMM", "terran_gen") and unit.unit_type == self.medivac_id:
+            if (
+                self.map_type in ("MMM", "terran_gen")
+                and unit.unit_type == self.medivac_id
+            ):
                 # Medivacs cannot heal themselves or other flying units
                 target_items = [
                     (t_id, t_unit)
@@ -2214,19 +2217,35 @@ class StarCraft2Env(MultiAgentEnv):
                     for i in range(self.enemy_start_positions.shape[0])
                 ]
         debug_command = []
+        print("\033[94m" + "-> team" + "\033[0m", team)
+        print("\033[94m" + "-> enumerate(team)" + "\033[0m", enumerate(team))
+
         for unit_id, unit in enumerate(team):
             unit_type = self._convert_unit_name_to_unit_type(unit, ally=ally)
             owner = 1 if ally else 2
-            debug_command.append(
-                d_pb.DebugCommand(
-                    create_unit=d_pb.DebugCreateUnit(
-                        unit_type=unit_type,
-                        owner=owner,
-                        pos=init_pos[unit_id],
-                        quantity=1,
+            print("\033[90m" + "-> unit_id" + "\033[0m", unit_id)
+            print("-> init_pos.shape", len(init_pos))
+            # assert (unit_id < len(init_pos), '\033[91m' +"unit_id !< len(init_pos)"+ '\033[0m')
+            # CHANGE: insert condition & put debugger in the break
+            if unit_id < len(init_pos):
+
+                debug_command.append(
+                    d_pb.DebugCommand(
+                        create_unit=d_pb.DebugCreateUnit(
+                            unit_type=unit_type,
+                            owner=owner,
+                            pos=init_pos[
+                                unit_id
+                            ],  # position differenece size to the team, generate list
+                            # put a break point in function
+                            # look at team and what the init pos and see one is wrong size
+                            quantity=1,
+                        )
                     )
                 )
-            )
+                continue
+            print("\033[91m" + "unit_id > len(init_pos)" + "\033[0m")
+
         self._controller.debug(debug_command)
 
     def _convert_unit_name_to_unit_type(self, unit_name, ally=True):

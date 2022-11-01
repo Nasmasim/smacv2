@@ -120,9 +120,9 @@ class WeightedTeamsDistribution(Distribution):
         self.n_units = config["n_units"]
         self.n_enemies = config["n_enemies"]
         # CHANGE: deleted assert, to allow more allies than ennemies
-        #assert (
+        # assert (
         #    self.n_enemies >= self.n_units
-        #), "Only handle larger number of enemies than allies"
+        # ), "Only handle larger number of enemies than allies"
         self.weights = np.array(config["weights"])
         # unit types that cannot make up the whole team
         self.exceptions = config.get("exception_unit_types", set())
@@ -149,12 +149,12 @@ class WeightedTeamsDistribution(Distribution):
                 self.n_enemies - self.n_units, use_exceptions=True
             )
             enemy_team.extend(extra_enemies)
-        # CHANGE: added if allies > ennemies 
+        # CHANGE: added if allies > ennemies
         if self.n_enemies < self.n_units:
             extra_units = self._gen_team(
                 self.n_units - self.n_enemies, use_exceptions=True
             )
-            team.extend(extra_units) # Does this make sense?
+            team.extend(extra_units)  # Does this make sense?
 
         return {
             self.env_key: {
@@ -241,9 +241,9 @@ class ReflectPositionDistribution(Distribution):
         self.n_units = config["n_units"]
         self.n_enemies = config["n_enemies"]
         # CHANGE: took out assert, whats the consequence here ?
-        #assert (
+        # assert (
         #    self.n_enemies >= self.n_units
-        #), "Number of enemies must be >= number of units"
+        # ), "Number of enemies must be >= number of units"
         self.map_x = config["map_x"]
         self.map_y = config["map_y"]
         config_copy = deepcopy(config)
@@ -264,33 +264,53 @@ class ReflectPositionDistribution(Distribution):
             self.enemy_pos_generator = PerAgentUniformDistribution(
                 enemy_config_copy
             )
-        # CHANGE: reintroduced if statment with ally config 
-        if self.n_enemies < self.n_units:
-            ally_config_copy = deepcopy(config)
-            ally_config_copy["env_key"] = "ally_start_positions"
-            ally_config_copy["lower_bound"] = (self.map_x / 2, 0)
-            ally_config_copy["upper_bound"] = (self.map_x, self.map_y)
-            ally_config_copy["n_enemies"] =  self.n_units - self.n_enemies
-            self.ally_pos_generator = PerAgentUniformDistribution(
-                ally_config_copy
-            )
+        # CHANGE: reintroduced if statment with ally config -> to investigate
+        # if self.n_enemies < self.n_units:
+        #    ally_config_copy = deepcopy(config)
+        #    ally_config_copy["env_key"] = "ally_start_positions"
+        #    ally_config_copy["lower_bound"] = (self.map_x / 2, 0)
+        #    ally_config_copy["upper_bound"] = (self.map_x, self.map_y)
+        #    ally_config_copy["n_enemies"] =  self.n_units - self.n_enemies
+        #    self.ally_pos_generator = PerAgentUniformDistribution(
+        #        ally_config_copy
+        #    )
 
     def generate(self) -> Dict[str, Dict[str, Any]]:
         ally_positions_dict = self.pos_generator.generate()
         ally_positions = ally_positions_dict["ally_start_positions"]["item"]
         enemy_positions = np.zeros((self.n_enemies, 2))
-        enemy_positions[: self.n_units, 0] = self.map_x - ally_positions[:, 0]
-        enemy_positions[: self.n_units, 1] = ally_positions[:, 1]
+        # CHANGE: Array shape mismatch, use min instead
+        # enemy_positions[: self.n_units, 0] = self.map_x - ally_positions[:, 0] #The bug is from here (5,) != (10,)
+        # enemy_positions[: self.n_units, 1] = ally_positions[:, 1]
+        enemy_positions[: min(self.n_units, self.n_enemies), 0] = (
+            self.map_x - ally_positions[: min(self.n_units, self.n_enemies), 0]
+        )
+        enemy_positions[
+            : min(self.n_units, self.n_enemies), 1
+        ] = ally_positions[: min(self.n_units, self.n_enemies), 1]
+
         # CHANGE: deleted if statement, consequences ? -> Bug with start positions
         if self.n_enemies > self.n_units:
             gen_enemy_positions = self.enemy_pos_generator.generate()
             gen_enemy_positions = gen_enemy_positions["enemy_start_positions"][
                 "item"
             ]
-            enemy_positions[self.n_units :, :] = gen_enemy_positions
-        
+            # CHANGE: Array shape mismatch, use min instead
+            # enemy_positions[self.n_units :, :] = gen_enemy_positions
+            enemy_positions[
+                min(self.n_units, self.n_enemies) :, :
+            ] = gen_enemy_positions
 
-        
+        print(
+            "\033[94m" + "-> ally_positions" + "\033[0m", ally_positions
+        )  # (10,2)
+        print(
+            "\033[91m" + "-> enemy_positions" + "\033[0m", enemy_positions
+        )  # (5,2)
+
+        # just to exit
+        assert self.n_enemies < self.n_units
+
         return {
             "ally_start_positions": {"item": ally_positions, "id": 0},
             "enemy_start_positions": {"item": enemy_positions, "id": 0},
