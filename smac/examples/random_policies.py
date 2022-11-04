@@ -18,7 +18,7 @@ def main():
 
     distribution_config = {
         "n_units": 5,  # we want units = 30 and enemies = 5
-        "n_enemies": 10,
+        "n_enemies": 15,
         "team_gen": {
             "dist_type": "weighted_teams",
             "unit_types": ["marine", "marauder", "medivac"],

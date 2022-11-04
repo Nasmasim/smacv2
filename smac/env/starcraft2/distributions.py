@@ -117,11 +117,11 @@ class WeightedTeamsDistribution(Distribution):
     def __init__(self, config):
         self.config = config
         self.units = np.array(config["unit_types"])
-        print("\033[93m" + "# self.units" + "\033[0m", self.units)
+        # print("\033[93m" + "# self.units" + "\033[0m", self.units)
         self.n_units = config["n_units"]
-        print("\033[93m" + "# self.n_units" + "\033[0m", self.n_units)
+        # print("\033[93m" + "# self.n_units" + "\033[0m", self.n_units)
         self.n_enemies = config["n_enemies"]
-        print("\033[93m" + "# self.n_enemies" + "\033[0m", self.n_enemies)
+        # print("\033[93m" + "# self.n_enemies" + "\033[0m", self.n_enemies)
         # CHANGE: deleted assert, to handle more allies than ennemies
         self.weights = np.array(config["weights"])
         # unit types that cannot make up the whole team
@@ -139,35 +139,37 @@ class WeightedTeamsDistribution(Distribution):
                 self.rng.choice(self.units, size=(n_units,), p=self.weights)
             )
             shuffle(team)
-        print("\033[93m" + "# _gen_team() team" + "\033[0m", team)
+        # print("\033[93m" + "# _gen_team() team" + "\033[0m", team)
         return team
 
     def generate(self) -> Dict[str, Dict[str, Any]]:
         # CHANGE: created two loops depending on number of allies and enenmies
-        if self.n_enemies > self.n_units:
+        if self.n_enemies >= self.n_units:  # account for case same amount
             ally_team = self._gen_team(self.n_units, use_exceptions=True)
             enemy_team = ally_team.copy()
-            extra_enemies = self._gen_team(
-                self.n_enemies - self.n_units, use_exceptions=True
-            )
-            enemy_team.extend(extra_enemies)
+
+            if self.n_enemies > self.n_units:
+                extra_enemies = self._gen_team(
+                    self.n_enemies - self.n_units, use_exceptions=True
+                )
+                enemy_team.extend(extra_enemies)
 
         # CHANGE: added this loop, first create enemies and then allies
         if self.n_enemies < self.n_units:
             enemy_team = self._gen_team(self.n_enemies, use_exceptions=True)
             ally_team = enemy_team.copy()
-            print("\033[92m" + "# generate() ally_team" + "\033[0m", ally_team)
-            print(
-                "\033[92m" + "# generate() enemy_team" + "\033[0m", enemy_team
-            )
+            # print("\033[92m" + "# generate() ally_team" + "\033[0m", ally_team)
+            # print(
+            #    "\033[92m" + "# generate() enemy_team" + "\033[0m", enemy_team
+            # )
             extra_units = self._gen_team(
                 self.n_units - self.n_enemies, use_exceptions=True
             )
             ally_team.extend(extra_units)
-            print(
-                "\033[92m" + "# generate() ally_team extended" + "\033[0m",
-                ally_team,
-            )
+            # print(
+            #    "\033[92m" + "# generate() ally_team extended" + "\033[0m",
+            #    ally_team,
+            # )
 
         return {
             self.env_key: {
@@ -251,44 +253,44 @@ class ReflectPositionDistribution(Distribution):
 
     def __init__(self, config):
         self.config = config
-        print("\033[95m" + "# Reflect init() config" + "\033[0m", self.config)
+        # print("\033[95m" + "# Reflect init() config" + "\033[0m", self.config)
         self.n_units = config["n_units"]
-        print(
-            "\033[95m" + "# Reflect init() self.n_units" + "\033[0m",
-            self.n_units,
-        )
+        # print(
+        #    "\033[95m" + "# Reflect init() self.n_units" + "\033[0m",
+        #    self.n_units,
+        # )
         self.n_enemies = config["n_enemies"]
-        print(
-            "\033[95m" + "# Reflect init() self.n_enemies" + "\033[0m",
-            self.n_enemies,
-        )
+        # print(
+        #    "\033[95m" + "# Reflect init() self.n_enemies" + "\033[0m",
+        #    self.n_enemies,
+        # )
         # CHANGE: took out assert to allow more allies than enemies
         self.map_x = config["map_x"]
         self.map_y = config["map_y"]
         config_copy = deepcopy(config)
         config_copy["env_key"] = "ally_start_positions"
-        print(
-            "\033[95m" + "# Reflect init() config_copy" + "\033[0m",
-            config_copy,
-        )
+        # print(
+        #    "\033[95m" + "# Reflect init() config_copy" + "\033[0m",
+        #    config_copy,
+        # )
         config_copy["lower_bound"] = (0, 0)
-        print(
-            "\033[95m" + "# Reflect init() config_copy" + "\033[0m",
-            config_copy,
-        )
+        # print(
+        #    "\033[95m" + "# Reflect init() config_copy" + "\033[0m",
+        #    config_copy,
+        # )
         # subtract one from the x coordinate because SC2 goes wrong
         # when you spawn ally and enemy units on top of one another
         # -1 gives a sensible 'buffer zone' of size 2
         config_copy["upper_bound"] = (self.map_x / 2 - 1, self.map_y)
-        print(
-            "\033[95m" + "# Reflect init() config_copy" + "\033[0m",
-            config_copy,
-        )
+        # print(
+        #    "\033[95m" + "# Reflect init() config_copy" + "\033[0m",
+        #    config_copy,
+        # )
         self.pos_generator = PerAgentUniformDistribution(config_copy)
-        print(
-            "\033[95m" + "# Reflect init() self.pos_generator" + "\033[0m",
-            self.pos_generator,
-        )
+        # print(
+        #     "\033[95m" + "# Reflect init() self.pos_generator" + "\033[0m",
+        #     self.pos_generator,
+        # )
         # TODO: Merge both if statements
         if self.n_enemies > self.n_units:
             enemy_config_copy = deepcopy(config)
@@ -312,77 +314,77 @@ class ReflectPositionDistribution(Distribution):
 
     def generate(self) -> Dict[str, Dict[str, Any]]:
         ally_positions_dict = self.pos_generator.generate()
-        print(
-            "\033[96m"
-            + "# Reflect generate() ally_positions_dict"
-            + "\033[0m",
-            ally_positions_dict,
-        )
+        # print(
+        #     "\033[96m"
+        #     + "# Reflect generate() ally_positions_dict"
+        #     + "\033[0m",
+        #     ally_positions_dict,
+        # )
         ally_positions = ally_positions_dict["ally_start_positions"]["item"]
-        print(
-            "\033[96m" + "# Reflect generate() ally_positions" + "\033[0m",
-            ally_positions,
-        )
+        # print(
+        #     "\033[96m" + "# Reflect generate() ally_positions" + "\033[0m",
+        #     ally_positions,
+        # )
         enemy_positions = np.zeros((self.n_enemies, 2))
-        print(
-            "\033[96m" + "# Reflect generate() enemy_positions" + "\033[0m",
-            enemy_positions,
-        )
+        # print(
+        #     "\033[96m" + "# Reflect generate() enemy_positions" + "\033[0m",
+        #     enemy_positions,
+        # )
         # CHANGE: Array shape mismatch, use min instead to determine size
         enemy_positions[: min(self.n_units, self.n_enemies), 0] = (
             self.map_x - ally_positions[: min(self.n_units, self.n_enemies), 0]
         )
-        print(
-            "\033[96m" + "# Reflect generate() enemy_positions" + "\033[0m",
-            enemy_positions,
-        )
+        # print(
+        #     "\033[96m" + "# Reflect generate() enemy_positions" + "\033[0m",
+        #     enemy_positions,
+        # )
         enemy_positions[
             : min(self.n_units, self.n_enemies), 1
         ] = ally_positions[: min(self.n_units, self.n_enemies), 1]
-        print(
-            "\033[96m" + "# Reflect generate() enemy_positions" + "\033[0m",
-            enemy_positions,
-        )
+        # print(
+        #     "\033[96m" + "# Reflect generate() enemy_positions" + "\033[0m",
+        #     enemy_positions,
+        # )
         # CHANGE: no need to generate more positions if enemies < allies
         if self.n_enemies > self.n_units:
             gen_enemy_positions = self.enemy_pos_generator.generate()
-            print(
-                "\033[96m"
-                + "# Reflect generate() gen_enemy_positions"
-                + "\033[0m",
-                gen_enemy_positions,
-            )
+            # print(
+            #     "\033[96m"
+            #     + "# Reflect generate() gen_enemy_positions"
+            #     + "\033[0m",
+            #     gen_enemy_positions,
+            # )
             gen_enemy_positions = gen_enemy_positions["enemy_start_positions"][
                 "item"
             ]
-            print(
-                "\033[96m"
-                + "# Reflect generate() gen_enemy_positions"
-                + "\033[0m",
-                gen_enemy_positions,
-            )
+            # print(
+            #     "\033[96m"
+            #     + "# Reflect generate() gen_enemy_positions"
+            #     + "\033[0m",
+            #     gen_enemy_positions,
+            # )
 
             # COMMENT: no need to use min here
             enemy_positions[
                 self.n_units :, :
             ] = gen_enemy_positions  # this adds to the array down
-            print(
-                "\033[96m"
-                + "# Reflect generate() enemy_positions"
-                + "\033[0m",
-                enemy_positions,
-            )
+            # print(
+            #     "\033[96m"
+            #     + "# Reflect generate() enemy_positions"
+            #     + "\033[0m",
+            #     enemy_positions,
+            # )
 
-        print(
-            "\033[96m" + "# Reflect generate()-> ally_positions" + "\033[0m",
-            ally_positions,
-            end="",
-        )  # (10,2)
-        print(
-            "\033[96m" + "# Reflect generate()-> enemy_positions" + "\033[0m",
-            enemy_positions,
-            end="",
-        )  # (5,2)
+        # print(
+        #     "\033[96m" + "# Reflect generate()-> ally_positions" + "\033[0m",
+        #     ally_positions,
+        #     end="",
+        # )
+        # print(
+        #     "\033[96m" + "# Reflect generate()-> enemy_positions" + "\033[0m",
+        #     enemy_positions,
+        #     end="",
+        # )
 
         return {
             "ally_start_positions": {"item": ally_positions, "id": 0},
@@ -457,16 +459,16 @@ class SurroundedPositionDistribution(Distribution):
                 1 - t
             )
             unit_index += group_membership[i]
-        print(
-            "\033[89m" + "# Surround generate()-> ally_positions" + "\033[0m",
-            ally_position,
-            end="",
-        )
-        print(
-            "\033[89m" + "# Surround generate()-> enemy_positions" + "\033[0m",
-            enemy_position,
-            end="",
-        )
+        # print(
+        #     "\033[89m" + "# Surround generate()-> ally_positions" + "\033[0m",
+        #     ally_position,
+        #     end="",
+        # )
+        # print(
+        #     "\033[89m" + "# Surround generate()-> enemy_positions" + "\033[0m",
+        #     enemy_position,
+        #     end="",
+        # )
 
         return {
             "ally_start_positions": {"item": ally_position, "id": 0},

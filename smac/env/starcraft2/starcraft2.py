@@ -302,12 +302,6 @@ class StarCraft2Env(MultiAgentEnv):
         self.use_unit_ranges = use_unit_ranges
         self.min_attack_range = min_attack_range
 
-        # Actions
-        self.n_actions_move = 4
-
-        self.n_actions_no_attack = self.n_actions_move + self.n_fov_actions + 2
-        self.n_actions = self.n_actions_no_attack + self.n_enemies
-
         # Map info
         self._agent_race = map_params["a_race"]
         self._bot_race = map_params["b_race"]
@@ -322,6 +316,20 @@ class StarCraft2Env(MultiAgentEnv):
         self.unit_type_bits = map_params["unit_type_bits"]
         self.map_type = map_params["map_type"]
         self._unit_types = None
+
+        # Actions
+        self.n_actions_move = 4
+        self.n_actions_no_attack = self.n_actions_move + self.n_fov_actions + 2
+
+        # CHANGE: With Medivacs in ally team, need a bigger action space
+        # TODO: edge case with terran without Medivacs (no need for extra actions for allies)
+        if self.map_type == "terran_gen":  # and
+            if "medivac" in self.capability_config["team_gen"]["unit_types"]:
+                self.n_actions = self.n_actions_no_attack + max(
+                    self.n_enemies, self.n_agents
+                )
+        else:
+            self.n_actions = self.n_actions_no_attack + self.n_enemies
 
         self.max_reward = (
             self.n_enemies * self.reward_death_value + self.reward_win
@@ -532,9 +540,9 @@ class StarCraft2Env(MultiAgentEnv):
         self.mask_enemies = self.enemy_mask is not None
         ally_team = episode_config.get("team_gen", {}).get("ally_team", None)
         enemy_team = episode_config.get("team_gen", {}).get("enemy_team", None)
-        print(
-            "\033[92m" + "-> episode_config" + "\033[0m", episode_config
-        )  # problem with 'team_gen'
+        # print(
+        #     "\033[92m" + "-> episode_config" + "\033[0m", episode_config
+        # )
 
         self.death_tracker_ally = np.zeros(self.n_agents)
         self.death_tracker_enemy = np.zeros(self.n_enemies)
@@ -2083,6 +2091,7 @@ class StarCraft2Env(MultiAgentEnv):
     def get_avail_agent_actions(self, agent_id):
         """Returns the available actions for agent_id."""
         unit = self.get_unit_by_id(agent_id)
+
         if unit.health > 0:
             # cannot choose no-op when alive
             avail_actions = [0] * self.n_actions
@@ -2221,23 +2230,11 @@ class StarCraft2Env(MultiAgentEnv):
                     for i in range(self.enemy_start_positions.shape[0])
                 ]
         debug_command = []
-        print("\033[94m" + "# _create_new_team-> team" + "\033[0m", team)
-        print(
-            "\033[94m" + "# _create_new_team-> init_pos" + "\033[0m", init_pos
-        )
-        print(
-            "\033[94m" + "# _create_new_team-> len(init_pos)" + "\033[0m",
-            len(init_pos),
-        )
 
         for unit_id, unit in enumerate(team):
             unit_type = self._convert_unit_name_to_unit_type(unit, ally=ally)
             owner = 1 if ally else 2
-            print(
-                "\033[92m" + "# _create_new_team -> unit_id" + "\033[0m",
-                unit_id,
-                end=" ",
-            )
+
             debug_command.append(
                 d_pb.DebugCommand(
                     create_unit=d_pb.DebugCreateUnit(
@@ -2248,7 +2245,7 @@ class StarCraft2Env(MultiAgentEnv):
                     )
                 )
             )
-            print("\033[91m" + "unit_id > len(init_pos)" + "\033[0m")
+            # print("\033[91m" + "unit_id > len(init_pos)" + "\033[0m")
 
         self._controller.debug(debug_command)
 
@@ -2266,16 +2263,16 @@ class StarCraft2Env(MultiAgentEnv):
             self._init_ally_unit_types(0)
             self._create_new_team(ally_team, episode_config, ally=True)
             self._create_new_team(enemy_team, episode_config, ally=False)
-            print(
-                "\033[96m" + "->def init_units -> ally_team" + "\033[0m",
-                ally_team,
-                end=" ",
-            )
-            print(
-                "\033[96m" + "->def init_units -> enemy_team" + "\033[0m",
-                enemy_team,
-                end=" ",
-            )
+            # print(
+            #     "\033[96m" + "->def init_units -> ally_team" + "\033[0m",
+            #     ally_team,
+            #     end=" ",
+            # )
+            # print(
+            #     "\033[96m" + "->def init_units -> enemy_team" + "\033[0m",
+            #     enemy_team,
+            #     end=" ",
+            # )
 
             try:
                 self._controller.step(1)
