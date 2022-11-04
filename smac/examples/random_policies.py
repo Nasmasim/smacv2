@@ -17,8 +17,8 @@ logging.set_verbosity(logging.DEBUG)
 def main():
 
     distribution_config = {
-        "n_units": 10,
-        "n_enemies": 5,
+        "n_units": 5,  # we want units = 30 and enemies = 5
+        "n_enemies": 10,
         "team_gen": {
             "dist_type": "weighted_teams",
             "unit_types": ["marine", "marauder", "medivac"],
@@ -37,7 +37,7 @@ def main():
     env = StarCraftCapabilityEnvWrapper(
         capability_config=distribution_config,
         map_name="10gen_terran",
-        debug=True,
+        debug=False,
         conic_fov=True,
         obs_own_pos=True,
     )

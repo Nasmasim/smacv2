@@ -532,6 +532,10 @@ class StarCraft2Env(MultiAgentEnv):
         self.mask_enemies = self.enemy_mask is not None
         ally_team = episode_config.get("team_gen", {}).get("ally_team", None)
         enemy_team = episode_config.get("team_gen", {}).get("enemy_team", None)
+        print(
+            "\033[92m" + "-> episode_config" + "\033[0m", episode_config
+        )  # problem with 'team_gen'
+
         self.death_tracker_ally = np.zeros(self.n_agents)
         self.death_tracker_enemy = np.zeros(self.n_enemies)
         self.fov_directions = np.zeros((self.n_agents, 2))
@@ -2217,33 +2221,33 @@ class StarCraft2Env(MultiAgentEnv):
                     for i in range(self.enemy_start_positions.shape[0])
                 ]
         debug_command = []
-        print("\033[94m" + "-> team" + "\033[0m", team)
-        print("\033[94m" + "-> enumerate(team)" + "\033[0m", enumerate(team))
+        print("\033[94m" + "# _create_new_team-> team" + "\033[0m", team)
+        print(
+            "\033[94m" + "# _create_new_team-> init_pos" + "\033[0m", init_pos
+        )
+        print(
+            "\033[94m" + "# _create_new_team-> len(init_pos)" + "\033[0m",
+            len(init_pos),
+        )
 
         for unit_id, unit in enumerate(team):
             unit_type = self._convert_unit_name_to_unit_type(unit, ally=ally)
             owner = 1 if ally else 2
-            print("\033[90m" + "-> unit_id" + "\033[0m", unit_id)
-            print("-> init_pos.shape", len(init_pos))
-            # assert (unit_id < len(init_pos), '\033[91m' +"unit_id !< len(init_pos)"+ '\033[0m')
-            # CHANGE: insert condition & put debugger in the break
-            if unit_id < len(init_pos):
-
-                debug_command.append(
-                    d_pb.DebugCommand(
-                        create_unit=d_pb.DebugCreateUnit(
-                            unit_type=unit_type,
-                            owner=owner,
-                            pos=init_pos[
-                                unit_id
-                            ],  # position differenece size to the team, generate list
-                            # put a break point in function
-                            # look at team and what the init pos and see one is wrong size
-                            quantity=1,
-                        )
+            print(
+                "\033[92m" + "# _create_new_team -> unit_id" + "\033[0m",
+                unit_id,
+                end=" ",
+            )
+            debug_command.append(
+                d_pb.DebugCommand(
+                    create_unit=d_pb.DebugCreateUnit(
+                        unit_type=unit_type,
+                        owner=owner,
+                        pos=init_pos[unit_id],
+                        quantity=1,
                     )
                 )
-                continue
+            )
             print("\033[91m" + "unit_id > len(init_pos)" + "\033[0m")
 
         self._controller.debug(debug_command)
@@ -2262,6 +2266,17 @@ class StarCraft2Env(MultiAgentEnv):
             self._init_ally_unit_types(0)
             self._create_new_team(ally_team, episode_config, ally=True)
             self._create_new_team(enemy_team, episode_config, ally=False)
+            print(
+                "\033[96m" + "->def init_units -> ally_team" + "\033[0m",
+                ally_team,
+                end=" ",
+            )
+            print(
+                "\033[96m" + "->def init_units -> enemy_team" + "\033[0m",
+                enemy_team,
+                end=" ",
+            )
+
             try:
                 self._controller.step(1)
                 self._obs = self._controller.observe()
